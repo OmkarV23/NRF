@@ -18,15 +18,15 @@ where $γ(\mathbf{x})$ is the multi-resolution hash encoding.
 
 ### Forward Model
 
-The forward model computes measurements $\mathbf{g}$ from field estimates $\mathbf{f}$ using the sensing matrix $\mathbf{H}$:
+The relationship between field estimates $\mathbf{f}$ and measurements $\mathbf{g}$ is given by:
 
-$\mathbf{g} = \mathbf{H}\mathbf{f}$
+$\mathbf{f} = -\mathbf{H}^H\mathbf{g}$
 
-The loss function includes both measurement consistency and regularization terms:
+Therefore, the measurements are computed using the pseudoinverse:
 
-$\mathcal{L} = \|\mathbf{g} - \mathbf{H}\mathbf{f}\|^2 + λ\mathcal{R}(\mathbf{f})$
+$\mathbf{g} = -(\mathbf{H}^H)^+\mathbf{f}$
 
-where $\mathcal{R}$ is a regularization function and $λ$ is the regularization weight.
+where $\mathbf{H}^H$ is the conjugate transpose of $\mathbf{H}$, and $(\cdot)^+$ denotes the pseudoinverse operation.
 
 ### Normal Vector Calculation
 
@@ -55,32 +55,111 @@ pip install torch
 pip install git+https://github.com/NVlabs/tiny-cuda-nn.git
 ```
 
-## Code Overview
+## Implementation
 
-### Key Components
+### Model Implementation
 
-1. `InstantNGPFieldRepresentation`:
-   - This is the main model, which includes multi-resolution hash encoding and an MLP with sine activation.
-   - The model takes 3D coordinates as input and outputs complex-valued field estimates.
+```python
+import torch
+import tinycudann as tcnn
 
-2. `forward_model`:
-   - The forward model computes measurements based on the predicted field estimates by multiplying with the conjugate transpose of the sensing matrix H.
-   - Mathematical formulation: $\mathbf{g} = \mathbf{H}\mathbf{f}$
+class InstantNGPFieldRepresentation(torch.nn.Module):
+    def __init__(self, config=None):
+        super().__init__()
+        
+        if config is None:
+            config = get_config()
 
-3. **Normal Calculation**:
-   - Normal vectors are calculated as gradients of the model's output with respect to the input coordinates.
-   - These normals are currently not used in optimization but can be incorporated into the forward model for a **Lambertian scattering model**.
+        encoding_config = config['encoding']
+        network_config = config['MLP']
 
-4. **Potential Extensions**:
-   - **Lambertian Scattering Model**: Normals could be used to model scattering based on Lambert's cosine law:
-     $I = I_0 \cos θ$
-   - **Transmission Probabilities**: Transmission probabilities could be computed based on predicted scattering values to simulate transmission effects.
+        self.encoding = tcnn.Encoding(
+            n_input_dims=config['model']['input_dim'],
+            encoding_config=encoding_config,
+        )
+        self.network = tcnn.Network(
+            n_input_dims=self.encoding.n_output_dims,
+            n_output_dims=config['model']['output_dim'],
+            network_config=network_config,
+        )
+    
+    def forward(self, coordinates):
+        with torch.enable_grad():
+            coordinates.requires_grad_(True)
+            if not coordinates.is_cuda:
+                coordinates = coordinates.to('cuda')
 
-### File Structure
+            x_encoded = self.encoding(coordinates)
+            out = self.network(x_encoded).float()
 
-- `model.py`: Defines the `InstantNGPFieldRepresentation` model.
-- `process_data.py`: Contains data processing functions (not included here).
-- `forward_model` function: Computes measurements from field estimates based on the sensing matrix H.
+            normals_out = - torch.autograd.grad(torch.sum(out.abs()),
+                                              coordinates, create_graph=True)[0]
+            normals_out = safe_normalize(normals_out).float()
+            normals_out[torch.isnan(normals_out)] = 0
+            
+        return torch.complex(real=out[:, 0], imag=out[:, 1]).to('cuda'), normals_out
+```
+
+### Forward Model
+
+```python
+def forward_model(f_est, H):
+    ''' Forward model to compute the measurements
+        field_estimate = -H.conj().T @ g 
+        Therefore, g = -H_pseudo_inv @ field_estimate'''
+    H_pseudo_inv = torch.linalg.pinv(H.conj().T)
+    g = -H_pseudo_inv @ f_est
+    return g
+```
+
+### Configuration
+
+```python
+def get_config():
+    config = {
+        "encoding": {
+            "otype": "HashGrid",
+            "n_levels": 16,
+            "n_features_per_level": 2,
+            "log2_hashmap_size": 19,
+            "base_resolution": 16,
+            "per_level_scale": 1.5
+        },
+        "MLP": {
+            "otype": "CutlassMLP",
+            "activation": "Sine", 
+            "output_activation": "None",
+            "n_neurons": 128,
+            "n_hidden_layers": 2
+        },
+        "model": {
+            "input_dim": 3, 
+            "output_dim": 2
+        }
+    }
+    return config
+```
+
+### Utility Functions
+
+```python
+def safe_normalize(x, eps=1e-4):
+    return x / torch.sqrt(torch.clamp(torch.sum(x * x, -1, keepdim=True), min=eps))
+```
+
+## Multi-resolution Hash Encoding
+
+The hash encoding function $γ$ maps input coordinates to a feature vector using multiple resolution levels:
+
+$γ(\mathbf{x}) = \text{concat}_{l=0}^{L-1}(E_l(\mathbf{x}))$
+
+where $E_l$ is the encoding at level $l$, and $L$ is the total number of levels. Each level operates at a different resolution, allowing the model to capture both fine and coarse details.
+
+The current implementation uses:
+- 16 levels of resolution
+- 2 features per level
+- Base resolution of 16
+- Scale factor of 1.5 between levels
 
 ## Usage Example
 
@@ -102,30 +181,13 @@ field_estimate, normals = model(coordinates)
 g_pred = forward_model(field_estimate, H)
 ```
 
-### Normal Vector Calculation
+## Output Details
 
-Normal vectors are calculated in the `InstantNGPFieldRepresentation` model as follows:
+The model outputs:
+1. Field estimates: Complex-valued tensor representing the field at each input coordinate
+2. Normal vectors: 3D vectors representing the gradient direction at each point
 
-```python
-normals_out = -torch.autograd.grad(torch.sum(out.abs()), coordinates, create_graph=True)[0]
-normals_out = safe_normalize(normals_out).float()
-normals_out[torch.isnan(normals_out)] = 0
-```
-
-The gradient computation follows the equation:
-
-$\mathbf{n}(\mathbf{x}) = -\frac{\nabla |F_θ(\mathbf{x})|}{\|\nabla |F_θ(\mathbf{x})|\|}$
-
-These normal vectors are **not currently used in the optimization** but can be applied to model **Lambertian scattering** or compute **transmission probabilities** based on predicted scattering values.
-
-## Multi-resolution Hash Encoding
-
-The hash encoding function $γ$ maps input coordinates to a feature vector using multiple resolution levels:
-
-$γ(\mathbf{x}) = \text{concat}_{l=0}^{L-1}(E_l(\mathbf{x}))$
-
-where $E_l$ is the encoding at level $l$, and $L$ is the total number of levels. Each level operates at a different resolution, allowing the model to capture both fine and coarse details.
-
+The forward model then converts these field estimates into measurements using the pseudo-inverse of the conjugate transpose of the sensing matrix.
 
 ## Contributing
 

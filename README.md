@@ -39,6 +39,7 @@ $\mathbf{n}(\mathbf{x}) = -\frac{\nabla |F_θ(\mathbf{x})|}{\|\nabla |F_θ(\math
 - **Multi-resolution Hash Encoding**: The model utilizes efficient multi-level hash encoding for high-resolution spatial representations.
 - **Complex-Valued Forward Model**: The model computes complex field estimates and includes a forward model to predict measurements.
 - **Normal Vector Calculation**: The model calculates normal vectors at each point in the 3D grid, though these are not currently used in optimization.
+- **SIREN Architecture**: Implementation follows the SIREN (Sinusoidal Representation Networks) approach using sine activation functions.
 - **Extensibility for Scattering and Transmission Models**:
   - **Lambertian Scattering Model**: The computed normals can be used in a Lambertian scattering model in future extensions.
   - **Transmission Probabilities**: Transmission probabilities based on predicted scattering values can also be computed but are not included in this version.
@@ -56,6 +57,13 @@ pip install git+https://github.com/NVlabs/tiny-cuda-nn.git
 ```
 
 ## Implementation
+
+The model implementation follows the SIREN (Sinusoidal Representation Networks) architecture, which uses sine activation functions to learn continuous signals. The choice of activation function determines the MLP type:
+
+- With sine activation: Uses `CutlassMLP` (current implementation)
+- With ReLU activation: Uses `FullyFusedMLP`
+
+This implementation closely follows the SIREN paper's approach of using intermediate sine activations for better representation of complex signals.
 
 ### Model Implementation
 
@@ -112,7 +120,7 @@ def forward_model(f_est, H):
     return g
 ```
 
-### Configuration
+### Configuration and MLP Architecture
 
 ```python
 def get_config():
@@ -126,8 +134,10 @@ def get_config():
             "per_level_scale": 1.5
         },
         "MLP": {
+            # Using CutlassMLP for sine activation (SIREN architecture)
+            # Change to "FullyFusedMLP" if using ReLU activation
             "otype": "CutlassMLP",
-            "activation": "Sine", 
+            "activation": "Sine",  # Change to "ReLU" if using FullyFusedMLP
             "output_activation": "None",
             "n_neurons": 128,
             "n_hidden_layers": 2
@@ -139,6 +149,26 @@ def get_config():
     }
     return config
 ```
+
+The MLP architecture follows these key principles:
+
+1. **SIREN Implementation**:
+   - Uses sine activation functions for all intermediate layers
+   - Follows the periodic activation pattern from the SIREN paper
+   - Better suited for representing continuous signals and their derivatives
+
+2. **MLP Type Selection**:
+   ```python
+   "MLP": {
+       # For SIREN architecture:
+       "otype": "CutlassMLP",
+       "activation": "Sine",
+       
+       # For ReLU-based architecture:
+       # "otype": "FullyFusedMLP",
+       # "activation": "ReLU",
+   }
+   ```
 
 ### Utility Functions
 
@@ -194,5 +224,10 @@ The forward model then converts these field estimates into measurements using th
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Author
+Omkar Vengurlekar: ovengurl@asu.edu
 
-Developed with InstantNGP and PyTorch for radar data processing.
+## References
+
+1. Sitzmann, V., Martel, J. N., Bergman, A. W., Lindell, D. B., Wetzstein, G., & SIREN: Implicit Neural Representations with Periodic Activation Functions.
+2. Müller, Thomas and Evans, Alex and Schied, Christoph and Keller, Alexander, & InstantNGP: Instant neural graphics primitives with a multiresolution hash encoding.
+```

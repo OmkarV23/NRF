@@ -26,8 +26,6 @@ loss_function = torch.nn.MSELoss()
 num_epochs = 5000
 progress_bar = tqdm(range(num_epochs), desc="Training Progress")
 
-
-
 for epoch in progress_bar:
     optimizer.zero_grad()
     
@@ -46,6 +44,14 @@ for epoch in progress_bar:
     writer.add_scalar('Total Loss', loss.item(), epoch)
 
     progress_bar.set_postfix({'Real Loss': real_loss.item(), 'Imaginary Loss': imag_loss.item(), 'Total Loss': loss.item()})
+    
+    if (epoch + 1) % 500 == 0:
+        checkpoint_path = f'checkpoints/model_epoch_{epoch+1}.pth'
+        torch.save(model.state_dict(), checkpoint_path)
+        print(f"Model checkpoint saved at epoch {epoch+1}")
+
+torch.save(model.state_dict(), 'checkpoints/model_final.pth')
+print("Final model saved.")
 
 writer.close()
 

@@ -228,6 +228,6 @@ Omkar Vengurlekar: ovengurl@asu.edu
 
 ## References
 
-1. Sitzmann, V., Martel, J. N., Bergman, A. W., Lindell, D. B., Wetzstein, G., & SIREN: Implicit Neural Representations with Periodic Activation Functions.
-2. Müller, Thomas and Evans, Alex and Schied, Christoph and Keller, Alexander, & InstantNGP: Instant neural graphics primitives with a multiresolution hash encoding.
-```
+1. Sitzmann, V., Martel, J. N., Bergman, A. W., Lindell, D. B., Wetzstein, G. **SIREN: Implicit Neural Representations with Periodic Activation Functions**. *arXiv preprint* [arXiv:2006.09661](https://arxiv.org/abs/2006.09661), 2020.
+
+2. Müller, T., Evans, A., Schied, C., & Keller, A. **InstantNGP: Instant neural graphics primitives with a multiresolution hash encoding**. *ACM Transactions on Graphics (Proc. SIGGRAPH)*, 2022. [arXiv:2201.05989](https://arxiv.org/abs/2201.05989).

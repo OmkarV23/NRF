@@ -80,10 +80,6 @@ normals_out[torch.isnan(normals_out)] = 0
 
 These normal vectors are **not currently used in the optimization** but can be applied to model **Lambertian scattering** or compute **transmission probabilities** based on predicted scattering values.
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

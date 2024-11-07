@@ -226,7 +226,7 @@ g_pred = forward_model(field_estimate, H)
 ## Training
 
 ```python 
-python3 train.py
+python train.py
 ```
 
 ## Testing and evaluation

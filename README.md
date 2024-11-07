@@ -44,16 +44,28 @@ $\mathbf{n}(\mathbf{x}) = -\frac{\nabla |F_θ(\mathbf{x})|}{\|\nabla |F_θ(\math
   - **Lambertian Scattering Model**: The computed normals can be used in a Lambertian scattering model in future extensions.
   - **Transmission Probabilities**: Transmission probabilities based on predicted scattering values can also be computed but are not included in this version.
 
-## Requirements
+## Clone the Repositiory
 
-To run the code, you will need the following libraries:
-- `torch` (PyTorch)
-- `tinycudann` (Tiny CUDA Neural Networks)
-
-Install these requirements with the following command:
 ```bash
-pip install torch
-pip install git+https://github.com/NVlabs/tiny-cuda-nn.git
+git clone https://github.com/OmkarV23/NRF.git
+cd NRF
+```
+
+
+
+## Create a Conda Environment
+
+```bash
+conda create --name nrf -y python=3.8
+conda activate nrf
+python -m pip install --upgrade pip
+```
+
+## Pre-requisites
+
+```bash
+conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit
+pip install requirements.txt
 ```
 
 ## Implementation
@@ -216,6 +228,10 @@ g_pred = forward_model(field_estimate, H)
 ```python 
 python3 train.py
 ```
+
+## Testing and evaluation
+
+Use the jupyter notebook [test_model.ipynb](test_model.ipynb) to test the model and evaluate its performance.
 
 ## Output Details
 

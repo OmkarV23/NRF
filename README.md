@@ -211,6 +211,12 @@ field_estimate, normals = model(coordinates)
 g_pred = forward_model(field_estimate, H)
 ```
 
+## Training
+
+```python 
+python3 train.py
+```
+
 ## Output Details
 
 The model outputs:

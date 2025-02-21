@@ -5,8 +5,12 @@ def forward_model(f_est, H):
     ''' Forward model to compute the measurements
         field_estimate = -H.conj().T @ g 
         Therefore, g = -H @ field_estimate'''
-    H_pseudo_inv = torch.linalg.pinv(H.conj().T)
-    g = -H_pseudo_inv @ f_est
+    # H_pseudo_inv = torch.linalg.pinv(H.conj().T)
+    # g = -H_pseudo_inv @ f_est
+
+    g = H @ f_est.to(torch.complex64)
+    g = g / torch.max(torch.abs(g))
+
     return g
 
 def safe_normalize(x, eps=1e-4):
@@ -17,22 +21,23 @@ def get_config():
     config = {
         "encoding":{
         "otype": "HashGrid",
-        "n_levels": 16,
+        "n_levels": 14,
         "n_features_per_level": 2,
-        "log2_hashmap_size": 19,
+        "log2_hashmap_size": 15,
         "base_resolution": 16,
         "per_level_scale": 1.5},
 
         "MLP":{
-            "otype": "CutlassMLP",
-            "activation": "Sine", 
-            "output_activation": "None",
+            "otype": "FullyFusedMLP",
+            # "activation": "ReLu", 
+            "output_activation": "Sigmoid",
+            # "output_activation": "Sigmoid",
             "n_neurons": 128,
-            "n_hidden_layers": 2},
+            "n_hidden_layers": 3},
 
         "model":{
             "input_dim":3, 
-            "output_dim":2}
+            "output_dim":1}
     }
     return config
 
@@ -66,9 +71,10 @@ class InstantNGPFieldRepresentation(torch.nn.Module):
             x_encoded = self.encoding(coordinates)
             out = self.network(x_encoded).float()
 
-            normals_out = - torch.autograd.grad(torch.sum(out.abs()),
-                                                coordinates, create_graph=True)[0]
-            normals_out = safe_normalize(normals_out).float()
-            normals_out[torch.isnan(normals_out)] = 0
+            # normals_out = - torch.autograd.grad(torch.sum(out.abs()),
+            #                                     coordinates, create_graph=True)[0]
+            # normals_out = safe_normalize(normals_out).float()
+            # normals_out[torch.isnan(normals_out)] = 0
             
-        return torch.complex(real=out[:, 0], imag=out[:, 1]).to('cuda'), normals_out
+        # return torch.complex(real=out[:, 0], imag=out[:, 1]).to('cuda'), normals_out
+        return out

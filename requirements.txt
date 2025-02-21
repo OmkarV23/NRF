@@ -2,7 +2,9 @@ jsonlib-python3
 tqdm
 torch==2.0.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 torchvision==0.15.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+scikit-image
 numpy
+scipy
 matplotlib
 tensorboard
 git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
